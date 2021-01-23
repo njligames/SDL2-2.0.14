@@ -101,6 +101,7 @@ static id disconnectObserver = nil;
 #ifdef SDL_JOYSTICK_iOS_ACCELEROMETER
 static const char *accelerometerName = "iOS Accelerometer";
 static CMMotionManager *motionManager = nil;
+static CMAttitude *initialAttitude = nil;
 #endif /* SDL_JOYSTICK_iOS_ACCELEROMETER */
 
 static SDL_JoystickDeviceItem *deviceList = NULL;
@@ -331,7 +332,7 @@ IOS_AddMFIJoystickDevice(SDL_JoystickDeviceItem *device, GCController *controlle
 
 #if defined(SDL_JOYSTICK_iOS_ACCELEROMETER) || defined(SDL_JOYSTICK_MFI)
 static void
-IOS_AddJoystickDevice(GCController *controller, SDL_bool accelerometer)
+IOS_AddJoystickDevice(GCController *controller, SDL_bool accelerometer, SDL_bool deviceMotion)
 {
     SDL_JoystickDeviceItem *device = deviceList;
 
@@ -357,6 +358,7 @@ IOS_AddJoystickDevice(GCController *controller, SDL_bool accelerometer)
     }
 
     device->accelerometer = accelerometer;
+    device->deviceMotion = deviceMotion;
     device->instance_id = SDL_GetNextJoystickInstanceID();
 
     if (accelerometer) {
@@ -484,11 +486,22 @@ IOS_JoystickInit(void)
 #endif
 
     @autoreleasepool {
+        int _acc = SDL_FALSE;
 #ifdef SDL_JOYSTICK_iOS_ACCELEROMETER
         if (SDL_GetHintBoolean(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, SDL_TRUE)) {
             /* Default behavior, accelerometer as joystick */
-            IOS_AddJoystickDevice(nil, SDL_TRUE);
+//            IOS_AddJoystickDevice(nil, SDL_TRUE);
+            _acc = SDL_TRUE;
         }
+        
+        int _dev = SDL_FALSE;
+        if(SDL_GetHintBoolean(SDL_HINT_DEVICEMOTION_AS_JOYSTICK, SDL_TRUE))
+        {
+            _dev = SDL_TRUE;
+        }
+        
+        if(_dev || _acc)
+            IOS_AddJoystickDevice(nil, _acc, _dev);
 #endif
 
 #ifdef SDL_JOYSTICK_MFI
@@ -500,7 +513,7 @@ IOS_JoystickInit(void)
         /* For whatever reason, this always returns an empty array on
          macOS 11.0.1 */
         for (GCController *controller in [GCController controllers]) {
-            IOS_AddJoystickDevice(controller, SDL_FALSE);
+            IOS_AddJoystickDevice(controller, SDL_FALSE, SDL_FALSE);
         }
 
 #if TARGET_OS_TV
@@ -515,7 +528,7 @@ IOS_JoystickInit(void)
                                                queue:nil
                                           usingBlock:^(NSNotification *note) {
                                               GCController *controller = note.object;
-                                              IOS_AddJoystickDevice(controller, SDL_FALSE);
+                                              IOS_AddJoystickDevice(controller, SDL_FALSE, SDL_FALSE);
                                           }];
 
         disconnectObserver = [center addObserverForName:GCControllerDidDisconnectNotification
@@ -658,6 +671,16 @@ IOS_JoystickOpen(SDL_Joystick *joystick, int device_index)
 
 #endif /* SDL_JOYSTICK_MFI */
         }
+        if(device->deviceMotion)
+        {
+#ifdef SDL_JOYSTICK_iOS_ACCELEROMETER
+            if (motionManager == nil) {
+                motionManager = [[CMMotionManager alloc] init];
+            }
+            motionManager.deviceMotionUpdateInterval = 0.1;
+            [motionManager startDeviceMotionUpdates];
+#endif /* !TARGET_OS_TV */
+        }
     }
     if (device->remote) {
         ++SDL_AppleTVRemoteOpenedAsJoystick;
@@ -708,6 +731,46 @@ IOS_AccelerometerUpdate(SDL_Joystick *joystick)
     SDL_PrivateJoystickAxis(joystick, 1, -(accel.y / maxgforce) * maxsint16);
     SDL_PrivateJoystickAxis(joystick, 2,  (accel.z / maxgforce) * maxsint16);
 #endif /* SDL_JOYSTICK_iOS_ACCELEROMETER */
+}
+
+static void
+IOS_DeviceMotionUpdate(SDL_Joystick * joystick)
+{
+#ifdef SDL_JOYSTICK_iOS_ACCELEROMETER
+    const float maxgforce = SDL_IPHONE_MAX_GFORCE;
+    const SInt16 maxsint16 = 0x7FFF;
+    CMRotationMatrix rotationMatrix = {
+        1, 0, 0,
+        0, 1, 0,
+        0, 0, 1
+    };
+
+    double yaw, pitch, roll;
+
+    @autoreleasepool {
+        if (!motionManager.isDeviceMotionActive) {
+            return;
+        }
+
+        if(initialAttitude == nil)
+            initialAttitude = [motionManager.deviceMotion.attitude copy];
+
+        CMAttitude *currentAttitude = [motionManager.deviceMotion.attitude copy];
+        [currentAttitude multiplyByInverseOfAttitude:initialAttitude];
+
+        rotationMatrix = currentAttitude.rotationMatrix;
+        yaw = currentAttitude.yaw;
+        pitch = currentAttitude.pitch;
+        roll = currentAttitude.roll;
+    }
+
+    SDL_PrivateJoystickDeviceMotion(joystick,
+                                    rotationMatrix.m11, rotationMatrix.m12, rotationMatrix.m13,
+                                    rotationMatrix.m21, rotationMatrix.m22, rotationMatrix.m23,
+                                    rotationMatrix.m31, rotationMatrix.m32, rotationMatrix.m33,
+                                    yaw, pitch, roll);
+#endif /* !TARGET_OS_TV */
+
 }
 
 #ifdef SDL_JOYSTICK_MFI
@@ -1297,6 +1360,10 @@ IOS_JoystickUpdate(SDL_Joystick *joystick)
         IOS_AccelerometerUpdate(joystick);
     } else if (device->controller) {
         IOS_MFIJoystickUpdate(joystick);
+    }
+    
+    if (device->deviceMotion) {
+        IOS_DeviceMotionUpdate(joystick);
     }
 }
 

@@ -453,6 +453,8 @@ extern "C" {
  */
 #define SDL_HINT_ACCELEROMETER_AS_JOYSTICK "SDL_ACCELEROMETER_AS_JOYSTICK"
 
+#define SDL_HINT_DEVICEMOTION_AS_JOYSTICK "SDL_DEVICEMOTION_AS_JOYSTICK"
+
 /**
  *  \brief  A variable controlling whether the Android / tvOS remotes
  *  should be listed as joystick devices, instead of sending keyboard events.

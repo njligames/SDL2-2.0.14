@@ -30,6 +30,7 @@
 
 typedef struct joystick_hwdata
 {
+    SDL_bool deviceMotion;
     SDL_bool accelerometer;
     SDL_bool remote;
 

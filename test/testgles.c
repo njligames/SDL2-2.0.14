@@ -118,7 +118,7 @@ main(int argc, char *argv[])
     accel = 0;
 
     /* Initialize test framework */
-    state = SDLTest_CommonCreateState(argv, SDL_INIT_VIDEO);
+    state = SDLTest_CommonCreateState(argv, SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
     if (!state) {
         return 1;
     }
@@ -291,6 +291,12 @@ main(int argc, char *argv[])
         ++frames;
         while (SDL_PollEvent(&event)) {
             switch (event.type) {
+                case SDL_JOYDEVICEMOTION:
+                {
+                    SDL_Log("Joystick device %d motion. [%f, %f, %f, %f, %f, %f, %f, %f, %f]\n", (int) event.jmotion.which, event.jmotion.m11, event.jmotion.m12, event.jmotion.m13, event.jmotion.m21, event.jmotion.m22, event.jmotion.m23, event.jmotion.m31, event.jmotion.m32, event.jmotion.m33);
+                    SDL_Log("Yaw, Pitch, Roll (%f, %f, %f)\n", event.jmotion.yaw, event.jmotion.pitch, event.jmotion.roll);
+                }
+                    break;
             case SDL_WINDOWEVENT:
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_RESIZED:
@@ -346,6 +352,8 @@ main(int argc, char *argv[])
 int
 main(int argc, char *argv[])
 {
+    SDL_SetHint(SDL_HINT_ACCELEROMETER_AS_JOYSTICK, "0");
+    SDL_SetHint(SDL_HINT_DEVICEMOTION_AS_JOYSTICK, "1");
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "No OpenGL ES support on this system\n");
     return 1;
 }

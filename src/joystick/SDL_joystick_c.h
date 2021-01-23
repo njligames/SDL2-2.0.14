@@ -117,6 +117,11 @@ extern int SDL_PrivateJoystickAxis(SDL_Joystick *joystick,
                                    Uint8 axis, Sint16 value);
 extern int SDL_PrivateJoystickBall(SDL_Joystick *joystick,
                                    Uint8 ball, Sint16 xrel, Sint16 yrel);
+extern int SDL_PrivateJoystickDeviceMotion(SDL_Joystick * joystick,
+                                           double m11, double m12, double m13,
+                                           double m21, double m22, double m23,
+                                           double m31, double m32, double m33,
+                                           double yaw, double pitch, double roll);
 extern int SDL_PrivateJoystickHat(SDL_Joystick *joystick,
                                   Uint8 hat, Uint8 value);
 extern int SDL_PrivateJoystickButton(SDL_Joystick *joystick,

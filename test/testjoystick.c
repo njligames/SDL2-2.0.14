@@ -108,6 +108,13 @@ loop(void *arg)
 
     while (SDL_PollEvent(&event)) {
         switch (event.type) {
+            
+            case SDL_JOYDEVICEMOTION:
+            {
+                SDL_Log("Joystick device %d motion. [%f, %f, %f, %f, %f, %f, %f, %f, %f]\n", (int) event.jmotion.which, event.jmotion.m11, event.jmotion.m12, event.jmotion.m13, event.jmotion.m21, event.jmotion.m22, event.jmotion.m23, event.jmotion.m31, event.jmotion.m32, event.jmotion.m33);
+                SDL_Log("Yaw, Pitch, Roll (%f, %f, %f)\n", event.jmotion.yaw, event.jmotion.pitch, event.jmotion.roll);
+            }
+                break;
 
         case SDL_JOYDEVICEADDED:
             SDL_Log("Joystick device %d added.\n", (int) event.jdevice.which);
